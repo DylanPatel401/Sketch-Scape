@@ -1,26 +1,23 @@
-.App {
+/* MainScreen.css */
+.MainScreen {
   text-align: center;
   height: 100vh;
   background: linear-gradient(to bottom, #a1c4fd, #c2e9fb);
   overflow: hidden;
   position: relative;
-}
-
-.App-header {
-  padding-top: 60px;
   color: white;
-  position: relative;
-  z-index: 1;
+  padding-top: 60px;
 }
 
 .clouds {
   display: flex;
   justify-content: center;
-  gap: 30px;
+  gap: 100px;
+  margin-bottom: 20px;
 }
 
 .cloud {
-  width: 150px;
+  width: 200px;
   height: auto;
   animation: float 4s ease-in-out infinite;
 }
@@ -62,4 +59,28 @@
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+}
+
+.button-group {
+  margin-top: 30px;
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  background-color: white;
+  color: #333;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.button-group button:hover {
+  background-color: #f0f0f0;
+  transform: scale(1.05);
 }
