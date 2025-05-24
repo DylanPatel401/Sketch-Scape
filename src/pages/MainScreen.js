@@ -29,6 +29,8 @@ const MainScreen = () => {
       <div className="clouds">
         <img src={cloudImage} alt="cloud" className="cloud" />
         <img src={cloudImage} alt="cloud" className="cloud" />
+        <img src={cloudImage} alt="cloud" className="cloud" />
+
       </div>
       <div className="raindrop-container">{raindrops}</div>
       <h1>Welcome to Sketch Scape</h1>
