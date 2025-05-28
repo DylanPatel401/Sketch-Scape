@@ -4,6 +4,7 @@ import MainScreen from './pages/MainScreen';
 import JoinParty from './pages/JoinParty';
 import CreateParty from './pages/CreateParty';
 import PlayGame from './pages/PlayGame';
+import Lobby from "./pages/Lobby";
 
 function App() {
   return (
@@ -13,6 +14,8 @@ function App() {
         <Route path="/join" element={<JoinParty />} />
         <Route path="/create" element={<CreateParty />} />
         <Route path="/play" element={<PlayGame />} />
+        <Route path="/lobby/:partyCode" element={<Lobby />} />
+      
       </Routes>
     </Router>
   );
