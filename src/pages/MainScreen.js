@@ -1,9 +1,12 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import cloudImage from '../assets/cloud.png';
+import { createParty } from '../firebase/test';
+import { useNavigate } from 'react-router-dom';
 import '../css/MainScreen.css';
 
 const MainScreen = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   const raindrops = Array.from({ length: 30 }, (_, i) => {
@@ -24,22 +27,41 @@ const MainScreen = () => {
     );
   });
 
+  const handleCreateParty = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const code = await createParty('impostor'); // or 'classic'
+      navigate(`/lobby/${code}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="MainScreen">
       <div className="clouds">
         <img src={cloudImage} alt="cloud" className="cloud" />
         <img src={cloudImage} alt="cloud" className="cloud" />
         <img src={cloudImage} alt="cloud" className="cloud" />
-
       </div>
+
       <div className="raindrop-container">{raindrops}</div>
+
       <h1>Welcome to Sketch Scape</h1>
       <p>Join a party or create your own to start drawing!</p>
+
       <div className="button-group">
         <button onClick={() => navigate('/play')}>Play</button>
         <button onClick={() => navigate('/join')}>Join Party</button>
-        <button onClick={() => navigate('/create')}>Create Party</button>
+        <button onClick={handleCreateParty} disabled={loading}>
+          {loading ? 'Creating...' : 'Create Party'}
+        </button>
       </div>
+
+      {error && <p>{error}</p>}
     </div>
   );
 };

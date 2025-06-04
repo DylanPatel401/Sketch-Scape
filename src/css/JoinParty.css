@@ -1,0 +1,66 @@
+/* JoinParty.css */
+
+.join-container {
+  background: linear-gradient(to bottom, #a3e4d7, #fef9e7);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 40px;
+  overflow: hidden;
+}
+
+.tree-decoration {
+  position: absolute;
+  bottom: 0;
+  left: 30px;
+  width: 200px;
+  height: auto;
+  z-index: 1;
+}
+
+.join-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 40px 30px;
+  text-align: center;
+  z-index: 2;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  width: 100%;
+}
+
+.join-title {
+  font-size: 26px;
+  font-weight: bold;
+  color: #1a3d2f;
+  margin-bottom: 20px;
+}
+
+.join-input {
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+
+.join-button {
+  background-color: #28a745;
+  color: white;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.join-button:hover {
+  background-color: #218838;
+}

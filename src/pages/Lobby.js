@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { FIRESTORE_DB } from "../firebase/firebase";
+import "../css/Lobby.css";
 
 const Lobby = () => {
   const { partyCode } = useParams();

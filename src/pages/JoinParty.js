@@ -3,6 +3,9 @@ import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FIRESTORE_DB, FIREBASE_AUTH } from "../firebase/firebase";
 
+import tree3 from "../assets/tree3.png";
+import "../css/JoinParty.css";
+
 const JoinParty = () => {
   const [partyCode, setPartyCode] = useState("");
   const navigate = useNavigate();
@@ -21,10 +24,8 @@ const JoinParty = () => {
       return;
     }
 
-    const partyData = partySnap.data();
-
     const memberData = {
-      displayName: "Anonymous", // or let them enter a name
+      displayName: "Anonymous",
       joinedAt: serverTimestamp(),
       isHost: false,
     };
@@ -37,18 +38,21 @@ const JoinParty = () => {
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-2">Join a Party</h2>
-      <input
-        type="text"
-        value={partyCode}
-        onChange={(e) => setPartyCode(e.target.value)}
-        placeholder="Enter party code"
-        className="border p-2 mr-2"
-      />
-      <button onClick={handleJoin} className="bg-blue-500 text-white px-4 py-2">
-        Join
-      </button>
+    <div className="join-container">
+      <img src={tree3} alt="Palm Tree" className="tree-decoration" />
+      <div className="join-card">
+        <h2 className="join-title">🌴 Join an Island Party</h2>
+        <input
+          type="text"
+          value={partyCode}
+          onChange={(e) => setPartyCode(e.target.value)}
+          placeholder="Enter party code"
+          className="join-input"
+        />
+        <button onClick={handleJoin} className="join-button">
+          Join Party
+        </button>
+      </div>
     </div>
   );
 };
