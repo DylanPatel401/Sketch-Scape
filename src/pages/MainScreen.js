@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import cloudImage from '../assets/cloud.png';
 import { createParty } from '../firebase/test';
 import { useNavigate } from 'react-router-dom';
 import '../css/MainScreen.css';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const MainScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+
+  // Automatically sign in anonymously on first load
+  useEffect(() => {
+    const auth = getAuth();
+
+    if (!localStorage.getItem('userId')) {
+      signInAnonymously(auth)
+        .then((userCredential) => {
+          const uid = userCredential.user.uid;
+          localStorage.setItem('userId', uid);
+          localStorage.setItem('displayName', 'Anonymous');
+        })
+        .catch((err) => {
+          console.error('Anonymous sign-in failed:', err);
+          setError('Failed to sign in anonymously.');
+        });
+    }
+  }, []);
 
   const raindrops = Array.from({ length: 30 }, (_, i) => {
     const left = Math.random() * 100;
@@ -30,11 +49,26 @@ const MainScreen = () => {
   const handleCreateParty = async () => {
     setLoading(true);
     setError(null);
+
+    const userId = localStorage.getItem('userId');
+    const displayName = localStorage.getItem('displayName') || 'Host';
+
     try {
-      const code = await createParty('impostor'); // or 'classic'
+      const code = await createParty({
+        mode: 'classic',
+        hostId: userId,
+        members: {
+          [userId]: {
+            displayName,
+            isHost: true,
+          },
+        },
+      });
+
       navigate(`/lobby/${code}`);
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || 'Error creating party');
     } finally {
       setLoading(false);
     }
@@ -61,7 +95,7 @@ const MainScreen = () => {
         </button>
       </div>
 
-      {error && <p>{error}</p>}
+      {error && <p className="error">{error}</p>}
     </div>
   );
 };
