@@ -11,30 +11,43 @@ const JoinParty = () => {
   const navigate = useNavigate();
 
   const handleJoin = async () => {
-    if (!partyCode.trim()) return alert("Enter a party code");
+    const trimmedCode = partyCode.trim().toUpperCase();
 
-    const user = FIREBASE_AUTH.currentUser;
-    if (!user) return alert("User not authenticated");
-
-    const partyRef = doc(FIRESTORE_DB, "parties", partyCode.trim());
-    const partySnap = await getDoc(partyRef);
-
-    if (!partySnap.exists()) {
-      alert("Party not found");
+    if (!trimmedCode) {
+      alert("Enter a party code");
       return;
     }
 
-    const memberData = {
-      displayName: "Anonymous",
-      joinedAt: serverTimestamp(),
-      isHost: false,
-    };
+    const user = FIREBASE_AUTH.currentUser;
+    if (!user) {
+      alert("User not authenticated");
+      return;
+    }
 
-    await updateDoc(partyRef, {
-      [`members.${user.uid}`]: memberData,
-    });
+    try {
+      const partyRef = doc(FIRESTORE_DB, "parties", trimmedCode);
+      const partySnap = await getDoc(partyRef);
 
-    navigate(`/lobby/${partyCode.trim()}`);
+      if (!partySnap.exists()) {
+        alert("Party not found");
+        return;
+      }
+
+      const memberData = {
+        displayName: user.displayName ?? "Anonymous",
+        joinedAt: serverTimestamp(),
+        isHost: false,
+      };
+
+      await updateDoc(partyRef, {
+        [`members.${user.uid}`]: memberData,
+      });
+
+      navigate(`/lobby/${trimmedCode}`);
+    } catch (error) {
+      console.error("Error joining party:", error);
+      alert("Failed to join the party. Please try again.");
+    }
   };
 
   return (
