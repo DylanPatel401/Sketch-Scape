@@ -16,10 +16,8 @@ const Lobby = () => {
 
   const handleStartGame = async () => {
     try {
-      console.log("Starting the game...");
       const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
       await updateDoc(partyRef, { status: "started" });
-      navigate(`/play/${partyCode}`);
     } catch (err) {
       console.error("Failed to start the game:", err);
     }
@@ -41,36 +39,38 @@ const Lobby = () => {
     const userId = localStorage.getItem("userId");
     const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
 
-    // Listen for party data updates
     const unsubscribe = onSnapshot(partyRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setPartyData(data);
-        setSelectedMode(data.mode || "classic");
-      } else {
+      if (!docSnap.exists()) {
         console.error("Party not found");
+        return;
+      }
+
+      const data = docSnap.data();
+      setPartyData(data);
+      setSelectedMode(typeof data.mode === "string" ? data.mode : data.mode?.mode || "classic");
+
+      // Redirect all users when game starts
+      if (data.status === "started") {
+        navigate(`/play/${partyCode}`);
       }
     });
 
-    // Remove player from members when tab/window closes
     const handleUnload = async () => {
       try {
         await updateDoc(partyRef, {
           [`members.${userId}`]: deleteField(),
         });
-        console.log("Player removed from lobby on unload.");
       } catch (err) {
         console.error("Failed to remove player:", err);
       }
     };
 
     window.addEventListener("beforeunload", handleUnload);
-
     return () => {
       unsubscribe();
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [partyCode]);
+  }, [partyCode, navigate]);
 
   if (!partyData || typeof partyData !== "object") {
     return <p className="loading-text">Loading lobby...</p>;
@@ -101,9 +101,7 @@ const Lobby = () => {
             </select>
           ) : (
             <span className="lobby-mode-value">
-              {typeof partyData.mode === "string"
-                ? partyData.mode
-                : partyData.mode?.mode || "unknown"}
+              {selectedMode}
             </span>
           )}
         </p>
@@ -114,19 +112,16 @@ const Lobby = () => {
 
         <h3 className="lobby-players-header">Players</h3>
         <ul className="players-list">
-          {partyData?.members &&
-            Object.entries(partyData.members).map(([uid, member]) => {
-              const displayName = String(member.displayName || "Unknown");
-              return (
-                <li
-                  key={uid}
-                  className={`player-item ${member.isHost ? "host" : ""}`}
-                >
-                  <p className="player-name">{displayName}</p>
-                  {member.isHost && <p className="player-role">Host</p>}
-                </li>
-              );
-            })}
+          {partyData.members &&
+            Object.entries(partyData.members).map(([uid, member]) => (
+              <li
+                key={uid}
+                className={`player-item ${member.isHost ? "host" : ""}`}
+              >
+                <p className="player-name">{member.displayName || "Unknown"}</p>
+                {member.isHost && <p className="player-role">Host</p>}
+              </li>
+            ))}
         </ul>
 
         {isHost && (
