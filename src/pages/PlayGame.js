@@ -2,20 +2,25 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
+import trashIcon from "../assets/trash.png"; // make sure this path is correct
 
-const COLORS = ["black", "red", "green", "blue", "purple"];
-const ERASER_COLOR = "white";
+const COLORS = [
+  "#000000", "#808080", "#FF0000", "#FFA500", "#FFFF00", "#00FF00",
+  "#00FFFF", "#0000FF", "#800080", "#FFC0CB", "#A0522D", "#FFFFFF"
+];
 
 const PlayGame = () => {
   const { partycode } = useParams();
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
   const [paths, setPaths] = useState([]);
-  const [isHost, setIsHost] = useState(false);
   const [userId, setUserId] = useState(null);
-  const [currentColor, setCurrentColor] = useState("black");
+  const [isHost, setIsHost] = useState(false);
 
-  // Firebase Auth
+  const [currentColor, setCurrentColor] = useState("#000000");
+  const [brushSize, setBrushSize] = useState(4);
+  const [isEraser, setIsEraser] = useState(false);
+
   useEffect(() => {
     const unregisterAuthObserver = FIREBASE_AUTH.onAuthStateChanged((user) => {
       if (user) setUserId(user.uid);
@@ -23,7 +28,6 @@ const PlayGame = () => {
     return () => unregisterAuthObserver();
   }, []);
 
-  // Firestore listeners
   useEffect(() => {
     if (!partycode || !userId) return;
 
@@ -53,47 +57,21 @@ const PlayGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     paths.forEach((segment) => {
       if (!segment || !Array.isArray(segment.points) || segment.points.length < 2) return;
-
-      ctx.strokeStyle = segment.color || "black";
-      ctx.lineWidth = segment.color === ERASER_COLOR ? 16 : 2;
+      ctx.strokeStyle = segment.color;
+      ctx.lineWidth = segment.size;
       ctx.beginPath();
-
       for (let i = 1; i < segment.points.length; i++) {
         const from = segment.points[i - 1];
         const to = segment.points[i];
         ctx.moveTo(from.x, from.y);
         ctx.lineTo(to.x, to.y);
       }
-
       ctx.stroke();
     });
-  };
-
-
-  const handleMouseDown = (e) => {
-    if (!isHost) return;
-    isDrawing.current = true;
-    const newPoint = getCoords(e);
-    const newPath = { color: currentColor, points: [newPoint] };
-    updateDrawing([...paths, newPath]);
-  };
-
-  const handleMouseMove = (e) => {
-    if (!isHost || !isDrawing.current) return;
-    const newPoint = getCoords(e);
-    const updatedPaths = [...paths];
-    const currentPath = updatedPaths[updatedPaths.length - 1];
-    currentPath.points.push(newPoint);
-    updateDrawing(updatedPaths);
-  };
-
-  const handleMouseUp = () => {
-    isDrawing.current = false;
   };
 
   const getCoords = (e) => {
@@ -102,6 +80,31 @@ const PlayGame = () => {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
+  };
+
+  const handleMouseDown = (e) => {
+    if (!isHost) return;
+    isDrawing.current = true;
+    const point = getCoords(e);
+    const newSegment = {
+      color: isEraser ? "#FFFFFF" : currentColor,
+      size: isEraser ? 16 : brushSize,
+      points: [point],
+    };
+    const newPaths = [...paths, newSegment];
+    updateDrawing(newPaths);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isHost || !isDrawing.current) return;
+    const point = getCoords(e);
+    const updatedPaths = [...paths];
+    updatedPaths[updatedPaths.length - 1].points.push(point);
+    updateDrawing(updatedPaths);
+  };
+
+  const handleMouseUp = () => {
+    isDrawing.current = false;
   };
 
   const updateDrawing = async (newPaths) => {
@@ -113,6 +116,15 @@ const PlayGame = () => {
     });
   };
 
+  const handleUndo = () => {
+    const updated = paths.slice(0, -1);
+    updateDrawing(updated);
+  };
+
+  const handleClear = () => {
+    updateDrawing([]);
+  };
+
   if (!partycode) return <p>Invalid or missing party code.</p>;
   if (!userId) return <p>Authenticating...</p>;
 
@@ -121,34 +133,38 @@ const PlayGame = () => {
       <h2>🎨 Game in Progress - {isHost ? "You are the Host (Draw)" : "Viewer"}</h2>
 
       {isHost && (
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px" }}>
           {COLORS.map((color) => (
-            <button
+            <div
               key={color}
-              onClick={() => setCurrentColor(color)}
-              style={{
-                backgroundColor: color,
-                color: color === "black" ? "white" : "black",
-                marginRight: 8,
-                padding: "6px 12px",
-                border: currentColor === color ? "2px solid gray" : "1px solid lightgray",
-                borderRadius: "4px",
+              onClick={() => {
+                setCurrentColor(color);
+                setIsEraser(false);
               }}
-            >
-              {color}
-            </button>
+              style={{
+                width: 24,
+                height: 24,
+                backgroundColor: color,
+                border: currentColor === color && !isEraser ? "2px solid black" : "1px solid gray",
+                cursor: "pointer",
+              }}
+            />
           ))}
-          <button
-            onClick={() => setCurrentColor(ERASER_COLOR)}
-            style={{
-              backgroundColor: "lightgray",
-              marginLeft: 10,
-              padding: "6px 12px",
-              border: currentColor === ERASER_COLOR ? "2px solid gray" : "1px solid gray",
-              borderRadius: "4px",
-            }}
-          >
-            Eraser
+
+          <button onClick={() => setIsEraser(true)} style={{ marginLeft: 8 }}>
+            🧽 Eraser
+          </button>
+
+          <select value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))}>
+            <option value={2}>Thin</option>
+            <option value={4}>Normal</option>
+            <option value={8}>Thick</option>
+          </select>
+
+          <button onClick={handleUndo}>↩️ Undo</button>
+
+          <button onClick={handleClear}>
+            <img src={trashIcon} alt="Clear" style={{ width: 20, height: 20 }} />
           </button>
         </div>
       )}
@@ -159,7 +175,7 @@ const PlayGame = () => {
         height={500}
         style={{
           border: "2px solid black",
-          background: "white",
+          backgroundColor: "white",
           cursor: isHost ? "crosshair" : "not-allowed",
         }}
         onMouseDown={handleMouseDown}
