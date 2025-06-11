@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
 import trashIcon from "../assets/trash.png"; // make sure this path is correct
+import ChatBox from "../components/chat";
 
 const COLORS = [
   "#000000", "#808080", "#FF0000", "#FFA500", "#FFFF00", "#00FF00",
@@ -169,6 +170,16 @@ const PlayGame = () => {
         </div>
       )}
 
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: "24px",
+        alignItems: "flex-start",
+        marginTop: 16,
+      }}
+    >
+      {/* 🎨 Canvas container */}
       <canvas
         ref={canvasRef}
         width={800}
@@ -183,7 +194,34 @@ const PlayGame = () => {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       />
+
+      {/* 💬 Chat container */}
+      <div
+        style={{
+          width: "300px",
+          height: "500px",
+          border: "1px solid #ccc",
+          borderRadius: "8px",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <ChatBox
+          gameId={partycode}
+          user={FIREBASE_AUTH.currentUser?.displayName || "Anonymous"}
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "8px",
+          }}
+        />
+      </div>
     </div>
+
+
+    </div>
+
   );
 };
 
