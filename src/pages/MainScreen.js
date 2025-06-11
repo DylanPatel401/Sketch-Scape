@@ -21,6 +21,7 @@ const MainScreen = () => {
       signInAnonymously(auth)
         .then(async (userCredential) => {
           const uid = userCredential.user.uid;
+          console.log(uid + " uid");
           localStorage.setItem('userId', uid);
           localStorage.setItem('displayName', 'Anonymous');
           setDisplayName('Anonymous');

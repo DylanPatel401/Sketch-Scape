@@ -77,7 +77,7 @@ const Lobby = () => {
   }
 
   const isHost = partyData.hostId === localStorage.getItem("userId");
-
+  console.log(isHost + " is host")
   return (
     <div className="lobby-container">
       <img src={tree1} alt="Tree Left" className="tree tree-left" />

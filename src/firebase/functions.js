@@ -16,7 +16,7 @@ const makePartyCode = () =>
 
 
 export const createParty = async (mode = 'classic') => {
-  const user = FIREBASE_AUTH.currentUser;
+  const user = FIREBASE_AUTH?.currentUser;
   if (!user) throw new Error('User must be signed in to create a party');
 
   const tryCreate = async () => {
@@ -29,8 +29,7 @@ export const createParty = async (mode = 'classic') => {
         if (partySnap.exists()) {
           throw new Error('collision');
         }
-        console.log(user);
-        console.log("USER")
+
         transaction.set(partyRef, {
           hostId: user.uid,
           createdAt: serverTimestamp(),
