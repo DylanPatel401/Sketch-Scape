@@ -1,7 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, onSnapshot, updateDoc, deleteField } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  updateDoc,
+  deleteField
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { FIRESTORE_DB } from "../firebase/firebase";
+import { FIRESTORE_DB, FIREBASE_AUTH } from "../firebase/firebase";
 
 import "../css/Lobby.css";
 import tree1 from "../assets/tree3.png";
@@ -13,6 +19,21 @@ const Lobby = () => {
 
   const [partyData, setPartyData] = useState(null);
   const [selectedMode, setSelectedMode] = useState("classic");
+  const [userId, setUserId] = useState(localStorage.getItem("userId"));
+
+  // Ensure userId is synced with Firebase Auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (user) => {
+      if (user) {
+        localStorage.setItem("userId", user.uid);
+        setUserId(user.uid);
+      } else {
+        localStorage.removeItem("userId");
+        setUserId(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleStartGame = async () => {
     try {
@@ -36,7 +57,8 @@ const Lobby = () => {
   };
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
+    if (!userId) return;
+
     const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
 
     const unsubscribe = onSnapshot(partyRef, (docSnap) => {
@@ -49,7 +71,6 @@ const Lobby = () => {
       setPartyData(data);
       setSelectedMode(typeof data.mode === "string" ? data.mode : data.mode?.mode || "classic");
 
-      // Redirect all users when game starts
       if (data.status === "started") {
         navigate(`/play/${partyCode}`);
       }
@@ -70,14 +91,14 @@ const Lobby = () => {
       unsubscribe();
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [partyCode, navigate]);
+  }, [partyCode, navigate, userId]);
 
   if (!partyData || typeof partyData !== "object") {
     return <p className="loading-text">Loading lobby...</p>;
   }
 
-  const isHost = partyData.hostId === localStorage.getItem("userId");
-  console.log(isHost + " is host")
+  const isHost = partyData.hostId === userId;
+
   return (
     <div className="lobby-container">
       <img src={tree1} alt="Tree Left" className="tree tree-left" />
@@ -100,9 +121,7 @@ const Lobby = () => {
               <option value="test">Test</option>
             </select>
           ) : (
-            <span className="lobby-mode-value">
-              {selectedMode}
-            </span>
+            <span className="lobby-mode-value">{selectedMode}</span>
           )}
         </p>
 
@@ -131,6 +150,8 @@ const Lobby = () => {
             </button>
           </div>
         )}
+
+
       </div>
 
       <img src={tree2} alt="Tree Right" className="tree tree-right" />

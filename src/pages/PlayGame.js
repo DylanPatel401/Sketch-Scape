@@ -4,6 +4,7 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
 import trashIcon from "../assets/trash.png"; // make sure this path is correct
 import ChatBox from "../components/chat";
+import {getRandomWords} from "../components/wordUtil";
 
 const COLORS = [
   "#000000", "#808080", "#FF0000", "#FFA500", "#FFFF00", "#00FF00",

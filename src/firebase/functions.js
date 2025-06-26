@@ -19,6 +19,12 @@ export const createParty = async (mode = 'classic') => {
   const user = FIREBASE_AUTH?.currentUser;
   if (!user) throw new Error('User must be signed in to create a party');
 
+  const displayName = (
+    localStorage.getItem('displayName') ||
+    user.displayName ||
+    'Anonymous'
+  ).trim();
+
   const tryCreate = async () => {
     const partyCode = makePartyCode();
     const partyRef = doc(FIRESTORE_DB, 'parties', partyCode);
@@ -33,22 +39,22 @@ export const createParty = async (mode = 'classic') => {
         transaction.set(partyRef, {
           hostId: user.uid,
           createdAt: serverTimestamp(),
-          status: 'waiting', // waiting | drawing | voting | finished
-          mode,              // mode should be a string (e.g. "classic")
+          status: 'waiting',
+          mode,
           members: {
             [user.uid]: {
-              displayName: user.displayName ?? 'Anonymous',
+              displayName,
               joinedAt: serverTimestamp(),
-              isHost: true
-            }
-          }
+              isHost: true,
+            },
+          },
         });
       });
 
       return partyCode;
     } catch (err) {
       if (err.message === 'collision') {
-        return tryCreate(); // Retry on collision
+        return tryCreate();
       } else {
         throw err;
       }
@@ -57,6 +63,8 @@ export const createParty = async (mode = 'classic') => {
 
   return tryCreate();
 };
+
+
 
 export const updateUserDisplayName = async (userId, name) => {
   const user = FIREBASE_AUTH.currentUser;
