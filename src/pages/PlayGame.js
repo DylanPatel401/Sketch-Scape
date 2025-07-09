@@ -210,12 +210,7 @@ const PlayGame = () => {
       >
         <ChatBox
           gameId={partycode}
-          user={FIREBASE_AUTH.currentUser?.displayName || "Anonymous"}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "8px",
-          }}
+          userId={userId}
         />
       </div>
     </div>

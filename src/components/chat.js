@@ -1,27 +1,51 @@
 import React, { useEffect, useRef, useState } from "react";
-import { collection, addDoc, onSnapshot, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  serverTimestamp,
+  query,
+  orderBy,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { FIRESTORE_DB } from "../firebase/firebase";
-import { query, orderBy } from "firebase/firestore";
 
-const ChatBox = ({ gameId, user }) => {
+const ChatBox = ({ gameId, userId }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [displayName, setDisplayName] = useState("Anonymous");
   const messagesEndRef = useRef(null);
 
+  // Fetch user displayName from Firestore party data
+  useEffect(() => {
+    const fetchDisplayName = async () => {
+      if (!userId || !gameId) return;
+      const partyRef = doc(FIRESTORE_DB, "parties", gameId);
+      const partySnap = await getDoc(partyRef);
+      if (partySnap.exists()) {
+        const data = partySnap.data();
+        const name = data.members?.[userId]?.displayName;
+        if (name) setDisplayName(name);
+      }
+    };
+    fetchDisplayName();
+  }, [gameId, userId]);
 
-    useEffect(() => {
+  // Realtime message listener
+  useEffect(() => {
     const messagesRef = collection(FIRESTORE_DB, "parties", gameId, "messages");
     const messagesQuery = query(messagesRef, orderBy("timestamp", "asc"));
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-        const msgs = snapshot.docs.map((doc) => doc.data());
-        setMessages(msgs);
+      const msgs = snapshot.docs.map((doc) => doc.data());
+      setMessages(msgs);
     });
 
     return () => unsubscribe();
-    }, [gameId]);
+  }, [gameId]);
 
-
+  // Auto-scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -32,7 +56,7 @@ const ChatBox = ({ gameId, user }) => {
 
     await addDoc(collection(FIRESTORE_DB, "parties", gameId, "messages"), {
       text: newMessage.trim(),
-      user,
+      user: displayName || "Anonymous",
       timestamp: serverTimestamp(),
     });
 
@@ -40,25 +64,15 @@ const ChatBox = ({ gameId, user }) => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%", 
-      }}
-    >
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "8px",
-        }}
-      >
-        {messages.map((msg, index) => (
-          <div key={index} style={{ marginBottom: "4px" }}>
-            <strong>{msg.user}:</strong> {msg.text}
-          </div>
-        ))}
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
+        {messages.map((msg, index) => {
+          return (
+            <div key={index} style={{ marginBottom: "4px" }}>
+              <strong>{msg.user || "Anonymous"}:</strong> {msg.text}
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
