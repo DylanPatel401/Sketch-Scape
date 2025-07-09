@@ -76,19 +76,26 @@ const PlayGame = () => {
   }, [partycode, userId]);
 
   useEffect(() => {
-    if (!selectedWord) return;
-    setTimer(ROUND_DURATION);
-    const interval = setInterval(() => {
+    if (!selectedWord || timer === 0) return;
+
+    const interval = setInterval(async () => {
       setTimer((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
+
+          if (userId === currentDrawer) {
+            rotateDrawer();
+          }
+
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(interval);
-  }, [selectedWord]);
+  }, [selectedWord, userId, currentDrawer]);
+
 
   const getWordChoices = async () => {
     try {
@@ -99,6 +106,31 @@ const PlayGame = () => {
       return [];
     }
   };
+
+  const rotateDrawer = async () => {
+    if (!partyData || !partyData.members) return;
+
+    const memberIds = Object.keys(partyData.members);
+    const currentIndex = memberIds.indexOf(currentDrawer);
+    const nextIndex = (currentIndex + 1) % memberIds.length;
+    const nextDrawer = memberIds[nextIndex];
+
+    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
+    await updateDoc(partyRef, {
+      currentDrawer: nextDrawer,
+      currentWord: null,
+    });
+
+    const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
+    await setDoc(drawingRef, {
+      paths: [],
+      lastUpdated: new Date().toISOString(),
+    });
+
+    setSelectedWord(""); // local cleanup
+    setPaths([]);
+  };
+
 
   const drawPaths = (paths) => {
     const canvas = canvasRef.current;
@@ -178,7 +210,7 @@ const PlayGame = () => {
     updateDrawing([]);
   };
 
-  const isDrawingTurn = userId === currentDrawer;
+  const isDrawingTurn = userId === currentDrawer && timer > 0;
 
   if (!partycode) return <p>Invalid or missing party code.</p>;
   if (!userId) return <p>Authenticating...</p>;
