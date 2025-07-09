@@ -3,7 +3,8 @@ import {
   doc,
   onSnapshot,
   updateDoc,
-  deleteField
+  deleteField,
+  getDoc
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useState } from "react";
@@ -38,11 +39,23 @@ const Lobby = () => {
   const handleStartGame = async () => {
     try {
       const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
-      await updateDoc(partyRef, { status: "started" });
+      const partySnap = await getDoc(partyRef);
+      const data = partySnap.data();
+
+      const members = data.members || {};
+      const memberIds = Object.keys(members);
+      const firstDrawer = memberIds[0]; 
+
+      await updateDoc(partyRef, {
+        status: "started",
+        currentDrawer: firstDrawer,
+        currentWord: null
+      });
     } catch (err) {
       console.error("Failed to start the game:", err);
     }
   };
+
 
   const handleModeChange = async (e) => {
     const newMode = e.target.value;
