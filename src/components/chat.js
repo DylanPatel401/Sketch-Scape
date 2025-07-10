@@ -8,14 +8,16 @@ import {
   orderBy,
   doc,
   getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { FIRESTORE_DB } from "../firebase/firebase";
 
-const ChatBox = ({ gameId, userId }) => {
+const ChatBox = ({ gameId, userId, currentWord, currentDrawer, timer }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [displayName, setDisplayName] = useState("Anonymous");
   const messagesEndRef = useRef(null);
+  const [lastCorrectWord, setLastCorrectWord] = useState(null);
 
   // Fetch user displayName from Firestore party data
   useEffect(() => {
@@ -52,10 +54,47 @@ const ChatBox = ({ gameId, userId }) => {
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    const trimmed = newMessage.trim();
+    if (!trimmed) return;
 
+    const guess = trimmed.toLowerCase();
+    const word = currentWord?.toLowerCase();
+    const isCorrect = word && guess === word;
+
+    const partyRef = doc(FIRESTORE_DB, "parties", gameId);
+    const partySnap = await getDoc(partyRef);
+
+    if (isCorrect && userId !== currentDrawer && partySnap.exists()) {
+      const data = partySnap.data();
+      const guessedPlayers = data.guessedPlayers || {};
+      const scores = data.scores || {};
+
+      if (!guessedPlayers[userId]) {
+        guessedPlayers[userId] = true;
+        scores[userId] = (scores[userId] || 0) + timer * 10;
+
+        await updateDoc(partyRef, {
+          guessedPlayers,
+          scores,
+          currentWord: null,
+        });
+
+        setLastCorrectWord(currentWord?.toLowerCase());
+      }
+
+      setNewMessage("");
+      return;
+    }
+
+    // 💡 Prevent sending the last correct word again
+    if (guess === lastCorrectWord) {
+      setNewMessage("");
+      return;
+    }
+
+    // Send regular message
     await addDoc(collection(FIRESTORE_DB, "parties", gameId, "messages"), {
-      text: newMessage.trim(),
+      text: trimmed,
       user: displayName || "Anonymous",
       timestamp: serverTimestamp(),
     });
@@ -63,16 +102,16 @@ const ChatBox = ({ gameId, userId }) => {
     setNewMessage("");
   };
 
+
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ flex: 1, overflowY: "auto", padding: "8px" }}>
-        {messages.map((msg, index) => {
-          return (
-            <div key={index} style={{ marginBottom: "4px" }}>
-              <strong>{msg.user || "Anonymous"}:</strong> {msg.text}
-            </div>
-          );
-        })}
+        {messages.map((msg, index) => (
+          <div key={index} style={{ marginBottom: "4px" }}>
+            <strong>{msg.user || "Anonymous"}:</strong> {msg.text}
+          </div>
+        ))}
         <div ref={messagesEndRef} />
       </div>
 

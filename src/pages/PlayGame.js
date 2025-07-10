@@ -119,6 +119,7 @@ const PlayGame = () => {
     await updateDoc(partyRef, {
       currentDrawer: nextDrawer,
       currentWord: null,
+      guessedPlayers: {},  
     });
 
     const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
@@ -127,9 +128,26 @@ const PlayGame = () => {
       lastUpdated: new Date().toISOString(),
     });
 
-    setSelectedWord(""); // local cleanup
+    setSelectedWord("");
     setPaths([]);
   };
+
+
+  const renderScoreboard = () => {
+    if (!partyData?.members || !partyData?.scores) return null;
+
+    return (
+      <div style={{ position: "absolute", top: 16, right: 16, textAlign: "left", background: "#f5f5f5", padding: "10px", borderRadius: "8px", boxShadow: "0 0 5px rgba(0,0,0,0.2)" }}>
+        <h4 style={{ marginTop: 0 }}>🏆 Scoreboard</h4>
+        {Object.entries(partyData.members).map(([uid, member]) => (
+          <div key={uid}>
+            {member.displayName || "Anonymous"}: {partyData.scores?.[uid] || 0} pts
+          </div>
+        ))}
+      </div>
+    );
+  };
+
 
 
   const drawPaths = (paths) => {
@@ -217,6 +235,7 @@ const PlayGame = () => {
 
   return (
     <div style={{ textAlign: "center" }}>
+      {renderScoreboard()}
       <h2>🎮 Game in Progress</h2>
       <p>{isDrawingTurn ? "You're drawing!" : "Waiting for the artist..."}</p>
 
@@ -297,7 +316,15 @@ const PlayGame = () => {
             flexDirection: "column",
           }}
         >
-          <ChatBox gameId={partycode} userId={userId} />
+          
+          <ChatBox
+            gameId={partycode}
+            userId={userId}
+            currentWord={partyData?.currentWord || ""}
+            currentDrawer={partyData?.currentDrawer}
+            timer={timer}
+          />
+
         </div>
       </div>
     </div>
