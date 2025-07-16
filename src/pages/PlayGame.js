@@ -4,7 +4,6 @@ import {
   doc,
   onSnapshot,
   setDoc,
-  getDoc,
   updateDoc,
 } from "firebase/firestore";
 import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
@@ -34,12 +33,11 @@ const PlayGame = () => {
   const [currentColor, setCurrentColor] = useState("#000000");
   const [brushSize, setBrushSize] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
+  const [gameFinished, setGameFinished] = useState(false);
 
   useEffect(() => {
     const unregister = FIREBASE_AUTH.onAuthStateChanged((user) => {
       if (user) setUserId(user.uid);
-      getRandomWords().then(console.log);
-
     });
     return () => unregister();
   }, []);
@@ -55,9 +53,17 @@ const PlayGame = () => {
       setPartyData(data);
       setCurrentDrawer(data?.currentDrawer || null);
 
+      if (data?.status === "finished") {
+        setGameFinished(true);
+      }
+
       if (data?.currentDrawer === userId && !data?.currentWord) {
-        const choices = await getWordChoices();
+        const choices = await getRandomWords(3);
         setWordChoices(Array.isArray(choices) ? choices : []);
+      }
+
+      if (data?.currentWord && data?.currentDrawer === userId) {
+        setSelectedWord(data.currentWord);
       }
     });
 
@@ -78,15 +84,11 @@ const PlayGame = () => {
   useEffect(() => {
     if (!selectedWord || timer === 0) return;
 
-    const interval = setInterval(async () => {
+    const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-
-          if (userId === currentDrawer) {
-            rotateDrawer();
-          }
-
+          if (userId === currentDrawer) rotateDrawer();
           return 0;
         }
         return prev - 1;
@@ -96,59 +98,50 @@ const PlayGame = () => {
     return () => clearInterval(interval);
   }, [selectedWord, userId, currentDrawer]);
 
-
-  const getWordChoices = async () => {
-    try {
-      const words = await getRandomWords(3);
-      return words;
-    } catch (err) {
-      console.error("Failed to get random words:", err);
-      return [];
-    }
-  };
-
   const rotateDrawer = async () => {
     if (!partyData || !partyData.members) return;
 
+    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
     const memberIds = Object.keys(partyData.members);
     const currentIndex = memberIds.indexOf(currentDrawer);
     const nextIndex = (currentIndex + 1) % memberIds.length;
     const nextDrawer = memberIds[nextIndex];
 
-    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
+    let newRoundCount = partyData.roundCount || 1;
+
+    const isLastTurnOfLastRound = (
+      partyData.roundCount === partyData.maxRounds &&
+      nextIndex === 0
+    );
+
+    if (isLastTurnOfLastRound) {
+      await updateDoc(partyRef, {
+        status: "finished",
+        currentDrawer: null,
+        currentWord: null,
+      });
+      return;
+    }
+
+    if (nextIndex === 0) newRoundCount++;
+
     await updateDoc(partyRef, {
       currentDrawer: nextDrawer,
       currentWord: null,
-      guessedPlayers: {},  
+      guessedPlayers: {},
+      roundCount: newRoundCount,
     });
 
     const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
     await setDoc(drawingRef, {
       paths: [],
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
     });
 
     setSelectedWord("");
     setPaths([]);
+    setTimer(ROUND_DURATION);
   };
-
-
-  const renderScoreboard = () => {
-    if (!partyData?.members || !partyData?.scores) return null;
-
-    return (
-      <div style={{ position: "absolute", top: 16, right: 16, textAlign: "left", background: "#f5f5f5", padding: "10px", borderRadius: "8px", boxShadow: "0 0 5px rgba(0,0,0,0.2)" }}>
-        <h4 style={{ marginTop: 0 }}>🏆 Scoreboard</h4>
-        {Object.entries(partyData.members).map(([uid, member]) => (
-          <div key={uid}>
-            {member.displayName || "Anonymous"}: {partyData.scores?.[uid] || 0} pts
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-
 
   const drawPaths = (paths) => {
     const canvas = canvasRef.current;
@@ -173,10 +166,7 @@ const PlayGame = () => {
 
   const getCoords = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const handleMouseDown = (e) => {
@@ -188,16 +178,15 @@ const PlayGame = () => {
       size: isEraser ? 16 : brushSize,
       points: [point],
     };
-    const newPaths = [...paths, newSegment];
-    updateDrawing(newPaths);
+    updateDrawing([...paths, newSegment]);
   };
 
   const handleMouseMove = (e) => {
     if (!isDrawingTurn || !isDrawing.current || !selectedWord) return;
     const point = getCoords(e);
-    const updatedPaths = [...paths];
-    updatedPaths[updatedPaths.length - 1].points.push(point);
-    updateDrawing(updatedPaths);
+    const updated = [...paths];
+    updated[updated.length - 1].points.push(point);
+    updateDrawing(updated);
   };
 
   const handleMouseUp = () => {
@@ -207,10 +196,7 @@ const PlayGame = () => {
   const updateDrawing = async (newPaths) => {
     setPaths(newPaths);
     const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
-    await setDoc(drawingRef, {
-      paths: newPaths,
-      lastUpdated: new Date().toISOString(),
-    });
+    await setDoc(drawingRef, { paths: newPaths, lastUpdated: new Date().toISOString() });
   };
 
   const handleWordSelect = async (word) => {
@@ -219,104 +205,83 @@ const PlayGame = () => {
     await updateDoc(partyRef, { currentWord: word });
   };
 
-  const handleUndo = () => {
-    const updated = paths.slice(0, -1);
-    updateDrawing(updated);
-  };
-
-  const handleClear = () => {
-    updateDrawing([]);
-  };
-
   const isDrawingTurn = userId === currentDrawer && timer > 0;
 
-  if (!partycode) return <p>Invalid or missing party code.</p>;
-  if (!userId) return <p>Authenticating...</p>;
+  const getWinnerName = () => {
+    if (!partyData?.scores) return "";
+    const entries = Object.entries(partyData.scores);
+    const winner = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
+    const winnerId = winner[0];
+    return partyData.members[winnerId]?.displayName || "Winner";
+  };
 
   return (
     <div style={{ textAlign: "center" }}>
-      {renderScoreboard()}
-      <h2>🎮 Game in Progress</h2>
-      <p>{isDrawingTurn ? "You're drawing!" : "Waiting for the artist..."}</p>
+      {gameFinished && (
+        <div style={{ background: "#dff0d8", padding: 20, borderRadius: 8, margin: 16 }}>
+          <h2>🎉 Game Over!</h2>
+          <p>🏆 Winner: <strong>{getWinnerName()}</strong></p>
+        </div>
+      )}
 
-      {isDrawingTurn && !selectedWord && Array.isArray(wordChoices) && (
+      {partyData?.roundCount && partyData?.maxRounds && (
+        <h3>Round {partyData.roundCount} of {partyData.maxRounds}</h3>
+      )}
+
+      <h2>🎮 Game in Progress</h2>
+      <p>{isDrawingTurn ? `You're drawing ${selectedWord ? `(${selectedWord})` : ""}` : "Waiting for the artist..."}</p>
+
+      {isDrawingTurn && !selectedWord && (
         <div>
           <h3>Pick a word to draw:</h3>
           {wordChoices.map((word) => (
-            <button
-              key={word}
-              onClick={() => handleWordSelect(word)}
-              style={{ margin: "4px", padding: "6px 12px", cursor: "pointer" }}
-            >
-              {word}
-            </button>
+            <button key={word} onClick={() => handleWordSelect(word)}>{word}</button>
           ))}
         </div>
       )}
 
-      {selectedWord && isDrawingTurn && (
-        <p>⏳ Time left: <strong>{timer}s</strong></p>
-      )}
+      {isDrawingTurn && selectedWord && <p>⏳ Time left: <strong>{timer}s</strong></p>}
 
       {isDrawingTurn && selectedWord && (
-        <div style={{ marginBottom: 12, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12, gap: 6, flexWrap: "wrap" }}>
           {COLORS.map((color) => (
             <div
               key={color}
-              onClick={() => {
-                setCurrentColor(color);
-                setIsEraser(false);
-              }}
+              onClick={() => { setCurrentColor(color); setIsEraser(false); }}
               style={{
                 width: 24,
                 height: 24,
                 backgroundColor: color,
                 border: currentColor === color && !isEraser ? "2px solid black" : "1px solid gray",
-                cursor: "pointer",
+                cursor: "pointer"
               }}
             />
           ))}
-          <button onClick={() => setIsEraser(true)} style={{ marginLeft: 8 }}>🧽 Eraser</button>
+          <button onClick={() => setIsEraser(true)}>🧽 Eraser</button>
           <select value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))}>
             <option value={2}>Thin</option>
             <option value={4}>Normal</option>
             <option value={8}>Thick</option>
           </select>
-          <button onClick={handleUndo}>↩️ Undo</button>
-          <button onClick={handleClear}>
+          <button onClick={() => updateDrawing(paths.slice(0, -1))}>↩️ Undo</button>
+          <button onClick={() => updateDrawing([])}>
             <img src={trashIcon} alt="Clear" style={{ width: 20, height: 20 }} />
           </button>
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "center", gap: "24px", alignItems: "flex-start", marginTop: 16 }}>
+      <div style={{ display: "flex", justifyContent: "center", gap: 24, marginTop: 16 }}>
         <canvas
           ref={canvasRef}
           width={800}
           height={500}
-          style={{
-            border: "2px solid black",
-            backgroundColor: "white",
-            cursor: isDrawingTurn && selectedWord ? "crosshair" : "not-allowed",
-          }}
+          style={{ border: "2px solid black", backgroundColor: "white", cursor: isDrawingTurn && selectedWord ? "crosshair" : "not-allowed" }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         />
-
-        <div
-          style={{
-            width: "300px",
-            height: "500px",
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          
+        <div style={{ width: 300, height: 500, border: "1px solid #ccc", borderRadius: 8, overflow: "hidden" }}>
           <ChatBox
             gameId={partycode}
             userId={userId}
@@ -324,9 +289,17 @@ const PlayGame = () => {
             currentDrawer={partyData?.currentDrawer}
             timer={timer}
           />
-
         </div>
       </div>
+
+      {partyData?.members && partyData?.scores && (
+        <div style={{ position: "absolute", top: 16, right: 16, background: "#f5f5f5", padding: 10, borderRadius: 8 }}>
+          <h4>🏆 Scoreboard</h4>
+          {Object.entries(partyData.members).map(([uid, member]) => (
+            <div key={uid}>{member.displayName || "Anonymous"}: {partyData.scores?.[uid] || 0} pts</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

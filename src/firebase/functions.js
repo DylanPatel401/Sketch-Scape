@@ -48,6 +48,14 @@ export const createParty = async (mode = 'classic') => {
               isHost: true,
             },
           },
+          scores: {
+            [user.uid]: 0,
+          },
+          currentDrawer: user.uid,
+          currentWord: null,
+          guessedPlayers: {},
+          roundCount: 1,     // start from round 1
+          maxRounds: 3,      // or any number of rounds you want
         });
       });
 
@@ -63,6 +71,7 @@ export const createParty = async (mode = 'classic') => {
 
   return tryCreate();
 };
+
 
 
 
