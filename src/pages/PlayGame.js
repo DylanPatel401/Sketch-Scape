@@ -1,11 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-  doc,
-  onSnapshot,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, deleteField } from "firebase/firestore";
+
 import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
 import trashIcon from "../assets/trash.png";
 import ChatBox from "../components/chat";
@@ -98,40 +94,100 @@ const PlayGame = () => {
     return () => clearInterval(interval);
   }, [selectedWord, userId, currentDrawer]);
 
+  useEffect(() => {
+    const cleanupOnLeave = async () => {
+    if (!partycode || !userId) return;
+
+    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
+    const partySnap = await partyRef.get();
+    const party = partySnap.data();
+
+    if (!party?.members?.[userId]) return;
+
+    // Remove user from members and hasDrawnMap
+    await updateDoc(partyRef, {
+      [`members.${userId}`]: deleteField(),
+      [`hasDrawnMap.${userId}`]: deleteField(),
+      [`scores.${userId}`]: deleteField(),
+    });
+  };
+
+  window.addEventListener("beforeunload", cleanupOnLeave);
+  return () => {
+    window.removeEventListener("beforeunload", cleanupOnLeave);
+  };
+}, [partycode, userId]);
+
+  useEffect(() => {
+    if (
+      partyData &&
+      partyData.status === "in-progress" &&
+      !partyData.hasDrawnMap &&
+      userId === partyData.hostId // Only host initializes this
+    ) {
+      const initMap = {};
+      Object.keys(partyData.members).forEach(uid => {
+        initMap[uid] = false;
+      });
+
+      const partyRef = doc(FIRESTORE_DB, "parties", partycode);
+      updateDoc(partyRef, {
+        hasDrawnMap: initMap,
+        currentDrawer: Object.keys(partyData.members)[0],
+        roundCount: 1,
+        currentWord: null,
+        guessedPlayers: {},
+      });
+    }
+  }, [partyData, userId]);
+    
   const rotateDrawer = async () => {
     if (!partyData || !partyData.members) return;
 
     const partyRef = doc(FIRESTORE_DB, "parties", partycode);
     const memberIds = Object.keys(partyData.members);
-    const currentIndex = memberIds.indexOf(currentDrawer);
-    const nextIndex = (currentIndex + 1) % memberIds.length;
-    const nextDrawer = memberIds[nextIndex];
+    const drawnMap = partyData.hasDrawnMap || {};
 
-    let newRoundCount = partyData.roundCount || 1;
+    // Mark currentDrawer as having drawn
+    drawnMap[currentDrawer] = true;
 
-    const isLastTurnOfLastRound = (
-      partyData.roundCount === partyData.maxRounds &&
-      nextIndex === 0
-    );
+    // Find next undrawn player
+    const nextDrawer = memberIds.find(uid => !drawnMap[uid]);
 
-    if (isLastTurnOfLastRound) {
+    if (nextDrawer) {
+      // Continue current round
       await updateDoc(partyRef, {
-        status: "finished",
-        currentDrawer: null,
+        currentDrawer: nextDrawer,
         currentWord: null,
+        guessedPlayers: {},
+        hasDrawnMap: drawnMap,
       });
-      return;
+    } else {
+      // All players have drawn, reset map and increment round
+      const newMap = {};
+      memberIds.forEach(uid => newMap[uid] = false);
+
+      const isLastRound = (partyData.roundCount || 1) >= partyData.maxRounds;
+
+      if (isLastRound) {
+        await updateDoc(partyRef, {
+          status: "finished",
+          currentDrawer: null,
+          currentWord: null,
+        });
+        return;
+      }
+
+      await updateDoc(partyRef, {
+        currentDrawer: memberIds[0],
+        currentWord: null,
+        guessedPlayers: {},
+        roundCount: (partyData.roundCount || 1) + 1,
+        hasDrawnMap: newMap,
+      });
     }
 
-    if (nextIndex === 0) newRoundCount++;
-
-    await updateDoc(partyRef, {
-      currentDrawer: nextDrawer,
-      currentWord: null,
-      guessedPlayers: {},
-      roundCount: newRoundCount,
-    });
-
+    // Clear the canvas
     const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
     await setDoc(drawingRef, {
       paths: [],
@@ -208,12 +264,18 @@ const PlayGame = () => {
   const isDrawingTurn = userId === currentDrawer && timer > 0;
 
   const getWinnerName = () => {
-    if (!partyData?.scores) return "";
-    const entries = Object.entries(partyData.scores);
-    const winner = entries.reduce((a, b) => (b[1] > a[1] ? b : a));
-    const winnerId = winner[0];
-    return partyData.members[winnerId]?.displayName || "Winner";
+    if (!partyData?.scores || !partyData?.members) return "";
+
+    const maxScore = Math.max(...Object.values(partyData.scores));
+    const topPlayers = Object.entries(partyData.scores)
+      .filter(([_, score]) => score === maxScore)
+      .map(([uid]) => partyData.members[uid]?.displayName || "Anonymous");
+
+    return topPlayers.length > 1
+      ? `Tie: ${topPlayers.join(" & ")}`
+      : topPlayers[0];
   };
+
 
   return (
     <div style={{ textAlign: "center" }}>

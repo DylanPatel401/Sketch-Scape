@@ -4,7 +4,7 @@ import {
   onSnapshot,
   updateDoc,
   deleteField,
-  getDoc
+  getDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useState } from "react";
@@ -21,8 +21,9 @@ const Lobby = () => {
   const [partyData, setPartyData] = useState(null);
   const [selectedMode, setSelectedMode] = useState("classic");
   const [userId, setUserId] = useState(localStorage.getItem("userId"));
+  const [numRounds, setNumRounds] = useState(3); // default 3 rounds
 
-  // Ensure userId is synced with Firebase Auth
+  // Sync userId with Firebase Auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(FIREBASE_AUTH, (user) => {
       if (user) {
@@ -36,6 +37,7 @@ const Lobby = () => {
     return () => unsubscribe();
   }, []);
 
+  // Host starts the game
   const handleStartGame = async () => {
     try {
       const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
@@ -44,19 +46,27 @@ const Lobby = () => {
 
       const members = data.members || {};
       const memberIds = Object.keys(members);
-      const firstDrawer = memberIds[0]; 
+      const firstDrawer = memberIds[0];
+
+      const initHasDrawnMap = {};
+      memberIds.forEach((uid) => {
+        initHasDrawnMap[uid] = false;
+      });
 
       await updateDoc(partyRef, {
         status: "started",
         currentDrawer: firstDrawer,
-        currentWord: null
+        currentWord: null,
+        guessedPlayers: {},
+        hasDrawnMap: initHasDrawnMap,
+        roundCount: 1,
       });
     } catch (err) {
       console.error("Failed to start the game:", err);
     }
   };
 
-
+  // Host selects game mode
   const handleModeChange = async (e) => {
     const newMode = e.target.value;
     setSelectedMode(newMode);
@@ -69,6 +79,20 @@ const Lobby = () => {
     }
   };
 
+  // Host selects number of rounds
+  const handleRoundsChange = async (e) => {
+    const value = parseInt(e.target.value);
+    setNumRounds(value);
+
+    try {
+      const partyRef = doc(FIRESTORE_DB, "parties", partyCode);
+      await updateDoc(partyRef, { maxRounds: value });
+    } catch (err) {
+      console.error("Failed to update rounds:", err);
+    }
+  };
+
+  // Lobby real-time sync + cleanup
   useEffect(() => {
     if (!userId) return;
 
@@ -82,7 +106,10 @@ const Lobby = () => {
 
       const data = docSnap.data();
       setPartyData(data);
+
+      // Sync local state
       setSelectedMode(typeof data.mode === "string" ? data.mode : data.mode?.mode || "classic");
+      setNumRounds(data.rounds || 3);
 
       if (data.status === "started") {
         navigate(`/play/${partyCode}`);
@@ -131,10 +158,28 @@ const Lobby = () => {
               className="mode-dropdown"
             >
               <option value="classic">Classic</option>
-              <option value="test">Test</option>
             </select>
           ) : (
             <span className="lobby-mode-value">{selectedMode}</span>
+          )}
+        </p>
+
+        <p className="lobby-rounds">
+          Rounds:{" "}
+          {isHost ? (
+            <select
+              value={numRounds}
+              onChange={handleRoundsChange}
+              className="rounds-dropdown"
+            >
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span>{numRounds}</span>
           )}
         </p>
 
@@ -150,7 +195,9 @@ const Lobby = () => {
                 key={uid}
                 className={`player-item ${member.isHost ? "host" : ""}`}
               >
-                <p className="player-name">{member.displayName || "Unknown"}</p>
+                <p className="player-name">
+                  {member.displayName || "Unknown"}
+                </p>
                 {member.isHost && <p className="player-role">Host</p>}
               </li>
             ))}
@@ -163,8 +210,6 @@ const Lobby = () => {
             </button>
           </div>
         )}
-
-
       </div>
 
       <img src={tree2} alt="Tree Right" className="tree tree-right" />

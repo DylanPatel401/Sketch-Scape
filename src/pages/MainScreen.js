@@ -111,7 +111,6 @@ const MainScreen = () => {
       </div>
 
       <div className="button-group">
-        <button onClick={() => navigate('/play')}>Play</button>
         <button onClick={() => navigate('/join')}>Join Party</button>
         <button onClick={handleCreateParty} disabled={loading}>
           {loading ? 'Creating...' : 'Create Party'}
