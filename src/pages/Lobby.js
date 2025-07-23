@@ -107,9 +107,12 @@ const Lobby = () => {
       const data = docSnap.data();
       setPartyData(data);
 
-      // Sync local state
+      // Sync local state safely
       setSelectedMode(typeof data.mode === "string" ? data.mode : data.mode?.mode || "classic");
-      setNumRounds(data.rounds || 3);
+
+      if (typeof data.maxRounds === "number") {
+        setNumRounds(data.maxRounds);
+      }
 
       if (data.status === "started") {
         navigate(`/play/${partyCode}`);
