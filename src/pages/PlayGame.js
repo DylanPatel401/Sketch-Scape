@@ -6,6 +6,7 @@ import { FIREBASE_AUTH, FIRESTORE_DB } from "../firebase/firebase";
 import trashIcon from "../assets/trash.png";
 import ChatBox from "../components/chat";
 import { getRandomWords } from "../components/wordUtil";
+import { useNavigate } from "react-router-dom";
 
 const COLORS = [
   "#000000", "#808080", "#FF0000", "#FFA500", "#FFFF00", "#00FF00",
@@ -18,6 +19,7 @@ const PlayGame = () => {
   const { partycode } = useParams();
   const canvasRef = useRef(null);
   const isDrawing = useRef(false);
+  const navigate = useNavigate();
 
   const [paths, setPaths] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -30,6 +32,13 @@ const PlayGame = () => {
   const [brushSize, setBrushSize] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
   const [gameFinished, setGameFinished] = useState(false);
+
+
+
+  const handleBack = () => {
+      navigate(`/lobby/${partycode}`);
+    
+  };
 
   useEffect(() => {
     const unregister = FIREBASE_AUTH.onAuthStateChanged((user) => {
@@ -279,6 +288,28 @@ const PlayGame = () => {
 
   return (
     <div style={{ textAlign: "center" }}>
+      
+      <div style={{
+        position: "absolute",
+        top: 16,
+        left: 16,
+        zIndex: 1000
+          }}>
+      <button
+        onClick= {handleBack} 
+        style={{
+          padding: "6px 12px",
+          border: "2px solid #ccc",
+          borderRadius: "5px",
+          backgroundColor: "white",
+          cursor: "pointer",
+          fontWeight: "bold"
+        }}
+      >
+      ← Back
+      </button>
+      </div>
+      
       {gameFinished && (
         <div style={{ background: "#dff0d8", padding: 20, borderRadius: 8, margin: 16 }}>
           <h2>🎉 Game Over!</h2>

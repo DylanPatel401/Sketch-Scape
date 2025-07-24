@@ -54,7 +54,16 @@ const JoinParty = () => {
     <div className="join-container">
       <img src={tree3} alt="Palm Tree" className="tree-decoration" />
       <div className="join-card">
+        
+        {/* ← Back 按钮 */}
+        <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "10px" }}>
+          <button onClick={() => navigate(-1)} style={{ fontSize: "14px" }}>← Back</button>
+        </div>
+        
         <h2 className="join-title">🌴 Join an Island Party</h2>
+        {/* 输入框 + Join Party 拆成两行 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}></div>
+
         <input
           type="text"
           value={partyCode}
@@ -66,7 +75,8 @@ const JoinParty = () => {
           Join Party
         </button>
       </div>
-    </div>
+    
+  </div>
   );
 };
 

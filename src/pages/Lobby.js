@@ -147,6 +147,22 @@ const Lobby = () => {
       <img src={tree1} alt="Tree Left" className="tree tree-left" />
 
       <div className="lobby-card">
+        {/* Back button */}
+          <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "10px" }}>
+          <button
+          onClick={() => navigate(-1)}
+          style={{
+            padding: "6px 12px",
+            border: "2px solid #ccc",
+            borderRadius: "5px",
+            backgroundColor: "transparent",
+            cursor: "pointer",
+            fontWeight: "bold"
+            }}
+          >
+            ← Back
+            </button>
+          </div>
         <h2 className="lobby-title">🏝️ Lobby</h2>
         <p className="lobby-code">
           Party Code: <span>{partyCode}</span>
