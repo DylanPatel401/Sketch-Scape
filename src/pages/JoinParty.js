@@ -2,6 +2,7 @@ import { useState } from "react";
 import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FIRESTORE_DB, FIREBASE_AUTH } from "../firebase/firebase";
+import BackButton from "../components/BackButton";
 
 import tree3 from "../assets/tree3.png";
 import "../css/JoinParty.css";
@@ -55,14 +56,12 @@ const JoinParty = () => {
       <img src={tree3} alt="Palm Tree" className="tree-decoration" />
       <div className="join-card">
         
-        {/* ← Back 按钮 */}
-        <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "10px" }}>
-          <button onClick={() => navigate(-1)} style={{ fontSize: "14px" }}>← Back</button>
-        </div>
+         <BackButton />
         
         <h2 className="join-title">🌴 Join an Island Party</h2>
         {/* 输入框 + Join Party 拆成两行 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
+        
 
         <input
           type="text"
@@ -75,7 +74,7 @@ const JoinParty = () => {
           Join Party
         </button>
       </div>
-    
+    </div>
   </div>
   );
 };

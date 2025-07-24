@@ -7,6 +7,8 @@ import trashIcon from "../assets/trash.png";
 import ChatBox from "../components/chat";
 import { getRandomWords } from "../components/wordUtil";
 import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import BackButton from "../components/BackButton";
 
 const COLORS = [
   "#000000", "#808080", "#FF0000", "#FFA500", "#FFFF00", "#00FF00",
@@ -32,13 +34,40 @@ const PlayGame = () => {
   const [brushSize, setBrushSize] = useState(4);
   const [isEraser, setIsEraser] = useState(false);
   const [gameFinished, setGameFinished] = useState(false);
+  const location = useLocation();
 
+  const handleNewGame = async () => {
+    if (!partyData?.members || userId !== partyData?.hostId) return;
 
+    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
+    const newHasDrawnMap = {};
+    Object.keys(partyData.members).forEach(uid => {
+      newHasDrawnMap[uid] = false;
+    });
 
-  const handleBack = () => {
-      navigate(`/lobby/${partycode}`);
-    
+    await updateDoc(partyRef, {
+      status: "in-progress",
+      roundCount: 1,
+      currentDrawer: Object.keys(partyData.members)[0],
+      currentWord: null,
+      guessedPlayers: {},
+      hasDrawnMap: newHasDrawnMap,
+      scores: Object.fromEntries(Object.keys(partyData.members).map(uid => [uid, 0]))
+    });
+
+    const drawingRef = doc(FIRESTORE_DB, "parties", partycode, "canvas", "drawing");
+    await setDoc(drawingRef, {
+      paths: [],
+      lastUpdated: new Date().toISOString()
+    });
+
+    setSelectedWord("");
+    setPaths([]);
+    setTimer(ROUND_DURATION);
+    setGameFinished(false);
   };
+
+ 
 
   useEffect(() => {
     const unregister = FIREBASE_AUTH.onAuthStateChanged((user) => {
@@ -288,32 +317,30 @@ const PlayGame = () => {
 
   return (
     <div style={{ textAlign: "center" }}>
+      <BackButton />  
       
-      <div style={{
-        position: "absolute",
-        top: 16,
-        left: 16,
-        zIndex: 1000
-          }}>
-      <button
-        onClick= {handleBack} 
-        style={{
-          padding: "6px 12px",
-          border: "2px solid #ccc",
-          borderRadius: "5px",
-          backgroundColor: "white",
-          cursor: "pointer",
-          fontWeight: "bold"
-        }}
-      >
-      ← Back
-      </button>
-      </div>
       
       {gameFinished && (
         <div style={{ background: "#dff0d8", padding: 20, borderRadius: 8, margin: 16 }}>
           <h2>🎉 Game Over!</h2>
           <p>🏆 Winner: <strong>{getWinnerName()}</strong></p>
+          {userId === partyData?.hostId && (
+      <button
+        onClick={handleNewGame}
+        style={{
+          marginTop: 12,
+          padding: "8px 16px",
+          backgroundColor: "#007bff",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          fontWeight: "bold",
+          cursor: "pointer"
+        }}
+      >
+        🔁 New Game
+      </button>
+    )}
         </div>
       )}
 
