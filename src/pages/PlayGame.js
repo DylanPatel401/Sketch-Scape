@@ -15,7 +15,7 @@ const COLORS = [
   "#00FFFF", "#0000FF", "#800080", "#FFC0CB", "#A0522D", "#FFFFFF"
 ];
 
-const ROUND_DURATION = 9;
+const ROUND_DURATION = 7;
 
 const PlayGame = () => {
   const { partycode } = useParams();
@@ -133,28 +133,27 @@ const PlayGame = () => {
   }, [selectedWord, userId, currentDrawer]);
 
   useEffect(() => {
-    const cleanupOnLeave = async () => {
-    if (!partycode || !userId) return;
+    const cleanupOnLeave = () => {
+      if (!partycode || !userId) return;
 
-    const partyRef = doc(FIRESTORE_DB, "parties", partycode);
-    const partySnap = await partyRef.get();
-    const party = partySnap.data();
+      const partyRef = doc(FIRESTORE_DB, "parties", partycode);
 
-    if (!party?.members?.[userId]) return;
+      // Fire-and-forget cleanup (no await, since beforeunload can't handle async)
+      updateDoc(partyRef, {
+        [`members.${userId}`]: deleteField(),
+        [`hasDrawnMap.${userId}`]: deleteField(),
+        [`scores.${userId}`]: deleteField(),
+      }).catch((err) => {
+        console.error("Failed to clean up user on leave:", err);
+      });
+    };
 
-    // Remove user from members and hasDrawnMap
-    await updateDoc(partyRef, {
-      [`members.${userId}`]: deleteField(),
-      [`hasDrawnMap.${userId}`]: deleteField(),
-      [`scores.${userId}`]: deleteField(),
-    });
-  };
+    window.addEventListener("beforeunload", cleanupOnLeave);
+    return () => {
+      window.removeEventListener("beforeunload", cleanupOnLeave);
+    };
+  }, [partycode, userId]);
 
-  window.addEventListener("beforeunload", cleanupOnLeave);
-  return () => {
-    window.removeEventListener("beforeunload", cleanupOnLeave);
-  };
-}, [partycode, userId]);
 
   useEffect(() => {
     if (
